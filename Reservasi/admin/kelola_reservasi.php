@@ -59,6 +59,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 mysqli_stmt_bind_param($stmt, 'iisis', $idUser, $idPaket, $status, $statusDp, $schedule);
                 mysqli_stmt_execute($stmt);
                 mysqli_stmt_close($stmt);
+
+                if (in_array($status, ['Selesai', 'Cancel'], true)) {
+                    header('Location: kelola_riwayat.php?msg=tambah_berhasil');
+                    exit;
+                }
+
                 header('Location: kelola_reservasi.php?msg=tambah_berhasil');
                 exit;
             }
@@ -68,6 +74,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             mysqli_stmt_bind_param($stmt, 'iisisi', $idUser, $idPaket, $status, $statusDp, $schedule, $idReservasi);
             mysqli_stmt_execute($stmt);
             mysqli_stmt_close($stmt);
+
+            if (in_array($status, ['Selesai', 'Cancel'], true)) {
+                header('Location: kelola_riwayat.php?msg=ubah_berhasil');
+                exit;
+            }
+
             header('Location: kelola_reservasi.php?msg=ubah_berhasil');
             exit;
         }
@@ -120,7 +132,7 @@ $sql = 'SELECT r.id_reservasi, r.id_user, r.id_paket, r.status, r.status_dp, r.b
         FROM reservasi r
         JOIN `user` u ON u.id_user = r.id_user
         JOIN paket p ON p.id_paket = r.id_paket
-    WHERE r.status <> "Selesai"
+    WHERE r.status NOT IN ("Selesai", "Cancel")
         ORDER BY r.id_reservasi DESC';
 $reservasiResult = mysqli_query($conn, $sql);
 if ($reservasiResult) {
