@@ -812,42 +812,6 @@ $username = $_SESSION['username'] ?? '';
                 </div>
             </div>
         </div>
-
-        <div class="row g-4 mt-2">
-            <div class="col-md-4">
-                    <div class="card border-0 shadow-sm h-100 tilt-card">
-                    <div class="card-body p-4">
-                        <div class="d-flex align-items-center mb-2">
-                            <i class="fas fa-bullseye text-danger me-2"></i>
-                            <h5 class="fw-bold mb-0">Visi Kami</h5>
-                        </div>
-                        <p class="text-muted mb-0">Menjadi benchmark layanan detailing terpercaya yang dikenal karena kualitas hasil, pelayanan ramah, dan standar kerja profesional.</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                    <div class="card border-0 shadow-sm h-100 tilt-card">
-                    <div class="card-body p-4">
-                        <div class="d-flex align-items-center mb-2">
-                            <i class="fas fa-flag-checkered text-danger me-2"></i>
-                            <h5 class="fw-bold mb-0">Misi Kami</h5>
-                        </div>
-                        <p class="text-muted mb-0">Memberikan hasil detailing presisi, edukasi perawatan kendaraan, dan pengalaman layanan yang cepat, transparan, serta konsisten.</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                    <div class="card border-0 shadow-sm h-100 tilt-card">
-                    <div class="card-body p-4">
-                        <div class="d-flex align-items-center mb-2">
-                            <i class="fas fa-handshake text-danger me-2"></i>
-                            <h5 class="fw-bold mb-0">Nilai Brand</h5>
-                        </div>
-                        <p class="text-muted mb-0">Integritas, ketelitian, dan komitmen terhadap hasil menjadi fondasi utama kami dalam setiap pekerjaan detailing kendaraan pelanggan.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 </section>
 
@@ -1016,7 +980,7 @@ $username = $_SESSION['username'] ?? '';
     </div>
 </section>
 
-<section class="py-5" style="background: #ffffff;">
+<!-- <section class="py-5" style="background: #ffffff;">
     <div class="container">
         <h2 class="text-center mb-5 fw-bold" style="color: #dc3545;"><i class="fas fa-comments"></i> Testimoni Pelanggan</h2>
         <div class="row g-4">
@@ -1049,7 +1013,7 @@ $username = $_SESSION['username'] ?? '';
             </div>
         </div>
     </div>
-</section>
+</section> -->
 
 <section class="py-5" style="background: linear-gradient(135deg, #1f1f1f 0%, #000 100%);">
     <div class="container text-center text-white">
