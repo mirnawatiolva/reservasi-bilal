@@ -202,7 +202,7 @@ if ($result) {
                                     data-bs-target="#editModal"
                                     data-id="<?php echo (int) $paket['id_paket']; ?>"
                                     data-nama="<?php echo h($paket['nama_paket']); ?>"
-                                    data-harga="<?php echo h($paket['harga']); ?>"
+                                    data-harga="<?php echo (int) round((float) $paket['harga']); ?>"
                                     data-deskripsi="<?php echo h($paket['deskripsi']); ?>"
                                     data-gambar="<?php echo h($paket['gambar']); ?>"
                                     onclick="setEditPaket(this)">
@@ -307,7 +307,21 @@ function setEditPaket(button) {
 }
 
 function formatRupiahInput(value) {
-    const digits = String(value || '').replace(/\D/g, '');
+    const raw = String(value || '').trim();
+    if (raw === '') {
+        return '';
+    }
+
+    // Handle numeric strings from DB such as "5000000.00" before digit-only cleanup.
+    if (/^\d+[\.,]\d{1,2}$/.test(raw)) {
+        const normalized = raw.replace(',', '.');
+        const parsed = Math.round(parseFloat(normalized));
+        if (!Number.isNaN(parsed) && parsed > 0) {
+            return 'Rp ' + new Intl.NumberFormat('id-ID').format(parsed);
+        }
+    }
+
+    const digits = raw.replace(/\D/g, '');
     if (!digits) {
         return '';
     }
