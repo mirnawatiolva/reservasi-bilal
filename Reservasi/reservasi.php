@@ -352,6 +352,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </section>
 
+<footer class="py-4 text-white" style="background-color: #000;">
+    <div class="container text-center text-muted"><p>&copy; 2026 Exco Detailing. All Rights Reserved.</p></div>
+</footer>
+</div>
+
 <div class="modal fade" id="notaReservasiModal" tabindex="-1" aria-labelledby="notaReservasiLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
@@ -369,11 +374,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         </div>
     </div>
-</div>
-
-<footer class="py-4 text-white" style="background-color: #000;">
-    <div class="container text-center text-muted"><p>&copy; 2026 Exco Detailing. All Rights Reserved.</p></div>
-</footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
