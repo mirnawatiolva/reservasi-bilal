@@ -7,6 +7,12 @@ function h($value)
     return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
 }
 
+function parseRupiahInput($value)
+{
+    $normalized = preg_replace('/[^0-9]/', '', (string) $value);
+    return (float) ($normalized === '' ? 0 : $normalized);
+}
+
 $message = '';
 $messageType = 'success';
 
@@ -16,7 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'create' || $action === 'update') {
         $idPaket = isset($_POST['id_paket']) ? (int) $_POST['id_paket'] : 0;
         $namaPaket = trim($_POST['nama_paket'] ?? '');
-        $harga = (float) ($_POST['harga'] ?? 0);
+        $harga = parseRupiahInput($_POST['harga'] ?? 0);
         $deskripsi = trim($_POST['deskripsi'] ?? '');
         $gambarLama = trim($_POST['gambar_lama'] ?? '');
         $gambarPath = $gambarLama;
@@ -230,7 +236,7 @@ if ($result) {
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Harga</label>
-                        <input type="number" min="1" class="form-control" name="harga" required>
+                        <input type="text" class="form-control harga-rupiah" name="harga" inputmode="numeric" placeholder="Rp 0" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Deskripsi (satu fitur per baris)</label>
@@ -268,7 +274,7 @@ if ($result) {
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Harga</label>
-                        <input type="number" min="1" class="form-control" name="harga" id="edit_harga" required>
+                        <input type="text" class="form-control harga-rupiah" name="harga" id="edit_harga" inputmode="numeric" placeholder="Rp 0" required>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Deskripsi (satu fitur per baris)</label>
@@ -294,10 +300,45 @@ if ($result) {
 function setEditPaket(button) {
     document.getElementById('edit_id_paket').value = button.getAttribute('data-id');
     document.getElementById('edit_nama_paket').value = button.getAttribute('data-nama');
-    document.getElementById('edit_harga').value = button.getAttribute('data-harga');
+    const hargaEdit = document.getElementById('edit_harga');
+    hargaEdit.value = formatRupiahInput(button.getAttribute('data-harga'));
     document.getElementById('edit_deskripsi').value = button.getAttribute('data-deskripsi');
     document.getElementById('edit_gambar_lama').value = button.getAttribute('data-gambar');
 }
+
+function formatRupiahInput(value) {
+    const digits = String(value || '').replace(/\D/g, '');
+    if (!digits) {
+        return '';
+    }
+
+    return 'Rp ' + new Intl.NumberFormat('id-ID').format(parseInt(digits, 10));
+}
+
+function stripRupiah(value) {
+    return String(value || '').replace(/\D/g, '');
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    const hargaInputs = document.querySelectorAll('.harga-rupiah');
+
+    hargaInputs.forEach(function (input) {
+        input.addEventListener('input', function () {
+            const cursorAtEnd = input.selectionStart === input.value.length;
+            input.value = formatRupiahInput(input.value);
+            if (cursorAtEnd) {
+                input.setSelectionRange(input.value.length, input.value.length);
+            }
+        });
+
+        const form = input.closest('form');
+        if (form) {
+            form.addEventListener('submit', function () {
+                input.value = stripRupiah(input.value);
+            });
+        }
+    });
+});
 </script>
 </body>
 </html>
