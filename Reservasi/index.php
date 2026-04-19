@@ -795,20 +795,6 @@ $username = $_SESSION['username'] ?? '';
                     <li class="mb-2"><i class="fas fa-check-circle text-danger"></i> Proses QC Berlapis Sebelum Serah Terima</li>
                     <li class="mb-2"><i class="fas fa-check-circle text-danger"></i> Konsultasi Paket Sesuai Kebutuhan Kendaraan</li>
                 </ul>
-
-                <div class="row g-3">
-                    <div class="col-6">
-                        <div class="p-3 bg-white rounded-3 shadow-sm border h-100">
-                            <h4 class="fw-bold text-danger mb-1">1.200+</h4>
-                            <small class="text-muted">Unit kendaraan ditangani</small>
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="p-3 bg-white rounded-3 shadow-sm border h-100">
-                            <h4 class="fw-bold text-danger mb-1">4.9/5</h4>
-                            <small class="text-muted">Rata-rata kepuasan pelanggan</small>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>
