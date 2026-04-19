@@ -93,7 +93,7 @@ if ($paketResult) {
 }
 
 $riwayatList = [];
-$sql = "SELECT r.id_reservasi, r.id_user, r.id_paket, r.status, r.schedule, u.username, p.nama_paket, p.harga
+$sql = "SELECT r.id_reservasi, r.id_user, r.id_paket, r.status, r.schedule, r.bukti_pembayaran, u.username, p.nama_paket, p.harga
         FROM reservasi r
         JOIN `user` u ON u.id_user = r.id_user
         JOIN paket p ON p.id_paket = r.id_paket
@@ -186,12 +186,13 @@ $statusOptions = ['Selesai', 'Cancel'];
                                 <th>Paket</th>
                                 <th>Tanggal</th>
                                 <th>Total Pembayaran</th>
+                                <th>Bukti Pembayaran</th>
                                 <th>Status</th>
                             </tr>
                             </thead>
                             <tbody>
                             <?php if (count($riwayatList) === 0): ?>
-                                <tr><td colspan="6" class="text-center text-muted">Belum ada data riwayat selesai/cancel.</td></tr>
+                                <tr><td colspan="7" class="text-center text-muted">Belum ada data riwayat selesai/cancel.</td></tr>
                             <?php endif; ?>
                             <?php foreach ($riwayatList as $row): ?>
                                 <tr>
@@ -200,6 +201,15 @@ $statusOptions = ['Selesai', 'Cancel'];
                                     <td><?php echo h($row['nama_paket']); ?></td>
                                     <td><?php echo h(date('d-m-Y H:i', strtotime($row['schedule']))); ?></td>
                                     <td>Rp<?php echo number_format((float) $row['harga'], 0, ',', '.'); ?></td>
+                                    <td>
+                                        <?php if (!empty($row['bukti_pembayaran'])): ?>
+                                            <a href="../<?php echo h($row['bukti_pembayaran']); ?>" target="_blank" class="btn btn-sm btn-outline-info">
+                                                <i class="bi bi-receipt"></i> Lihat Bukti
+                                            </a>
+                                        <?php else: ?>
+                                            <span class="text-muted">-</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td>
                                         <?php if ($row['status'] === 'Selesai'): ?>
                                             <span class="badge bg-success">Selesai</span>
