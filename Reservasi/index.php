@@ -930,7 +930,7 @@ $username = $_SESSION['username'] ?? '';
     </div>
 </section> -->
 
-<section class="py-5 bg-light">
+<!-- <section class="py-5 bg-light">
     <div class="container">
         <h2 class="text-center mb-5 fw-bold" style="color: #dc3545;"><i class="fas fa-cogs"></i> Proses  Detailing Kami</h2>
         <div class="row g-4">
@@ -964,7 +964,7 @@ $username = $_SESSION['username'] ?? '';
             </div>
         </div>
     </div>
-</section>
+</section> -->
 
 <!-- <section class="py-5" style="background: #ffffff;">
     <div class="container">
