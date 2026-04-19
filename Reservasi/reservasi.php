@@ -22,6 +22,8 @@ if ($checkBuktiColumn) {
 
 $message = '';
 $messageType = 'danger';
+$showNotaModal = false;
+$notaData = null;
 
 $paketList = [];
 $paketMap = [];
@@ -83,12 +85,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $idUser = (int) $_SESSION['user_id'];
 
         $stmt = mysqli_prepare($conn, 'INSERT INTO reservasi (id_user, id_paket, status, status_dp, bukti_pembayaran, schedule) VALUES (?, ?, ?, ?, ?, ?)');
-        mysqli_stmt_bind_param($stmt, 'iisiss', $idUser, $selectedPaketId, $status, $statusDp, $buktiPath, $schedule);
-        mysqli_stmt_execute($stmt);
-        mysqli_stmt_close($stmt);
+        if ($stmt) {
+            mysqli_stmt_bind_param($stmt, 'iisiss', $idUser, $selectedPaketId, $status, $statusDp, $buktiPath, $schedule);
+            $ok = mysqli_stmt_execute($stmt);
+            $insertId = $ok ? (int) mysqli_insert_id($conn) : 0;
+            mysqli_stmt_close($stmt);
 
-        $message = 'Reservasi berhasil dibuat. Silakan cek riwayat booking.';
-        $messageType = 'success';
+            if ($ok && isset($paketMap[$selectedPaketId])) {
+                $hargaPaket = (float) $paketMap[$selectedPaketId]['harga'];
+                $totalBayar = ($hargaPaket * $statusDp) / 100;
+
+                $notaData = [
+                    'id_reservasi' => $insertId,
+                    'nama_user' => (string) ($_SESSION['username'] ?? ''),
+                    'nama_paket' => (string) $paketMap[$selectedPaketId]['nama_paket'],
+                    'harga_paket' => $hargaPaket,
+                    'persentase_bayar' => $statusDp,
+                    'total_bayar' => $totalBayar,
+                    'jadwal' => $schedule,
+                    'status' => $status,
+                    'tanggal_nota' => date('Y-m-d H:i:s'),
+                ];
+
+                $message = 'Reservasi berhasil dibuat. Nota akan ditampilkan dan otomatis diunduh.';
+                $messageType = 'success';
+                $showNotaModal = true;
+            } else {
+                $message = 'Gagal menyimpan reservasi. Silakan coba lagi.';
+            }
+        } else {
+            $message = 'Gagal memproses reservasi. Silakan coba lagi.';
+        }
     }
 }
 ?>
@@ -195,6 +222,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         #infoPembayaran {
             border-radius: 14px;
             background: linear-gradient(145deg, #eef5ff, #f8fbff);
+        }
+
+        .nota-preview {
+            border: 1px dashed #b9c2d0;
+            border-radius: 12px;
+            background: #fff;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
         }
 
         .btn-danger {
@@ -316,12 +352,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 </section>
 
+<div class="modal fade" id="notaReservasiModal" tabindex="-1" aria-labelledby="notaReservasiLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="notaReservasiLabel"><i class="fas fa-receipt text-danger"></i> Nota Reservasi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="p-3 nota-preview" id="notaPreviewContent"></div>
+                <p class="small text-muted mt-3 mb-0">File PDF nota akan otomatis terunduh. Jika belum terunduh, klik tombol Download PDF.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Tutup</button>
+                <button type="button" class="btn btn-danger" id="btnDownloadNota"><i class="fas fa-download"></i> Download PDF</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <footer class="py-4 text-white" style="background-color: #000;">
     <div class="container text-center text-muted"><p>&copy; 2026 Exco Detailing. All Rights Reserved.</p></div>
 </footer>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script>
 function toRupiah(number) {
     return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
@@ -348,7 +404,130 @@ function updateRingkasan() {
     info.style.display = 'block';
 }
 
-document.addEventListener('DOMContentLoaded', updateRingkasan);
+function formatTanggalId(datetime) {
+    if (!datetime) {
+        return '-';
+    }
+
+    const date = new Date(datetime.replace(' ', 'T'));
+    if (Number.isNaN(date.getTime())) {
+        return datetime;
+    }
+
+    return date.toLocaleString('id-ID', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    }) + ' WIB';
+}
+
+function buildNotaPreview(invoice) {
+    return [
+        'EXCO DETAILING',
+        'Jl. Contoh No. 123',
+        '--------------------------------',
+        'ID Reservasi : #' + invoice.id_reservasi,
+        'Tanggal Nota : ' + formatTanggalId(invoice.tanggal_nota),
+        'Pelanggan    : ' + invoice.nama_user,
+        'Paket        : ' + invoice.nama_paket,
+        'Jadwal       : ' + formatTanggalId(invoice.jadwal),
+        'Status       : ' + invoice.status,
+        '--------------------------------',
+        'Harga Paket  : ' + toRupiah(invoice.harga_paket),
+        'Pembayaran   : ' + invoice.persentase_bayar + '%',
+        'Total Bayar  : ' + toRupiah(invoice.total_bayar),
+        '--------------------------------',
+        'Terima kasih telah melakukan',
+        'reservasi di Exco Detailing.'
+    ].join('<br>');
+}
+
+function downloadNotaPdf(invoice) {
+    const jsPDFRef = window.jspdf && window.jspdf.jsPDF;
+    if (!jsPDFRef) {
+        return;
+    }
+
+    const doc = new jsPDFRef({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: [80, 170]
+    });
+
+    let y = 8;
+    const left = 5;
+
+    doc.setFont('courier', 'bold');
+    doc.setFontSize(11);
+    doc.text('EXCO DETAILING', 40, y, { align: 'center' });
+    y += 5;
+
+    doc.setFont('courier', 'normal');
+    doc.setFontSize(8.5);
+    doc.text('Jl. Contoh No. 123', 40, y, { align: 'center' });
+    y += 4;
+    doc.text('--------------------------------', left, y);
+    y += 4;
+
+    const lines = [
+        'ID Reservasi : #' + invoice.id_reservasi,
+        'Tanggal Nota : ' + formatTanggalId(invoice.tanggal_nota),
+        'Pelanggan    : ' + invoice.nama_user,
+        'Paket        : ' + invoice.nama_paket,
+        'Jadwal       : ' + formatTanggalId(invoice.jadwal),
+        'Status       : ' + invoice.status,
+        '--------------------------------',
+        'Harga Paket  : ' + toRupiah(invoice.harga_paket),
+        'Pembayaran   : ' + invoice.persentase_bayar + '%',
+        'Total Bayar  : ' + toRupiah(invoice.total_bayar),
+        '--------------------------------',
+        'Terima kasih atas kepercayaan',
+        'Anda menggunakan layanan kami.'
+    ];
+
+    lines.forEach(function(line) {
+        const wrapped = doc.splitTextToSize(line, 70);
+        doc.text(wrapped, left, y);
+        y += wrapped.length * 4;
+    });
+
+    const fileName = 'nota_reservasi_' + invoice.id_reservasi + '.pdf';
+    doc.save(fileName);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateRingkasan();
+
+    const invoiceData = <?php echo $notaData ? json_encode($notaData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) : 'null'; ?>;
+    const shouldShowNota = <?php echo $showNotaModal ? 'true' : 'false'; ?>;
+
+    if (!shouldShowNota || !invoiceData) {
+        return;
+    }
+
+    const preview = document.getElementById('notaPreviewContent');
+    const btnDownload = document.getElementById('btnDownloadNota');
+    const modalEl = document.getElementById('notaReservasiModal');
+
+    if (preview) {
+        preview.innerHTML = buildNotaPreview(invoiceData);
+    }
+
+    if (btnDownload) {
+        btnDownload.addEventListener('click', function() {
+            downloadNotaPdf(invoiceData);
+        });
+    }
+
+    const modal = new bootstrap.Modal(modalEl);
+    modal.show();
+
+    window.setTimeout(function() {
+        downloadNotaPdf(invoiceData);
+    }, 400);
+});
 </script>
 </body>
 </html>
