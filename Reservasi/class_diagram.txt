@@ -1,0 +1,29 @@
+ASCII Class Diagram for Database: db_car_detailing
+
++----------------+     +----------------+
+|     Admin      |     |     Paket      |
++----------------+     +----------------+
+| - id_admin     |     | - id_paket     |
+| - username     |     | - nama_paket   |
+| - password     |     | - gambar       |
+| - email        |     | - harga        |
+|                |     | - deskripsi    |
++----------------+     +----------------+
+
++----------------+     +----------------+
+|     User       |     |   Reservasi    |
++----------------+     +----------------+
+| - id_user      |     | - id_reservasi |
+| - username     |     | - id_user      |
+| - password     |     | - id_paket     |
+| - email        |     | - status       |
+| - No_Telepon   |     | - status_dp    |
+|                |     | - bukti_pembayaran |
+|                |     | - schedule     |
++----------------+     +----------------+
+
+Relationships:
+- Reservasi -- id_user --> User (1 to many: one user can have many reservations)
+- Reservasi -- id_paket --> Paket (many to 1: many reservations can reference one paket)
+
+Note: This is a simplified ASCII representation of the class diagram based on the database tables.

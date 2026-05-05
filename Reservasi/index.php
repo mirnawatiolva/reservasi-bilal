@@ -764,7 +764,7 @@ $username = $_SESSION['username'] ?? '';
     </div>
 </nav>
 
-<section class="hero-section text-white text-center py-5" style="background: url('asset/foto/bg.jpg'); background-size: cover; background-position: center; min-height: 620px; display: flex; align-items: center;">
+<section class="hero-section text-white text-center py-5" style="background: url('asset/logo-detailing.png'); background-size: cover; background-position: center; min-height: 620px; display: flex; align-items: center;">
     <div class="hero-overlay-shape shape-a" aria-hidden="true"></div>
     <div class="hero-overlay-shape shape-b" aria-hidden="true"></div>
     <div class="container">
