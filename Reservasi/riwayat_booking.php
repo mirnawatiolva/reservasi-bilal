@@ -14,6 +14,45 @@ if (!isset($_SESSION['user_id'])) {
 
 $idUser = (int) $_SESSION['user_id'];
 
+// Pastikan kolom refund_amount ada
+$checkRefundCol = mysqli_query($conn, "SHOW COLUMNS FROM reservasi LIKE 'refund_amount'");
+if ($checkRefundCol && mysqli_num_rows($checkRefundCol) === 0) {
+    mysqli_query($conn, "ALTER TABLE reservasi ADD COLUMN refund_amount DECIMAL(15,2) DEFAULT NULL AFTER status_dp");
+}
+if ($checkRefundCol) {
+    mysqli_free_result($checkRefundCol);
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'cancel_booking') {
+    $idRes = (int) $_POST['id_reservasi'];
+    $stmt = mysqli_prepare($conn, "SELECT r.status, r.status_dp, p.harga FROM reservasi r JOIN paket p ON p.id_paket = r.id_paket WHERE r.id_reservasi = ? AND r.id_user = ?");
+    mysqli_stmt_bind_param($stmt, 'ii', $idRes, $idUser);
+    mysqli_stmt_execute($stmt);
+    $resResult = mysqli_stmt_get_result($stmt);
+    if ($rowRes = mysqli_fetch_assoc($resResult)) {
+        if ($rowRes['status'] !== 'Selesai' && $rowRes['status'] !== 'Cancel') {
+            $harga = (float) $rowRes['harga'];
+            $dpPersen = (int) $rowRes['status_dp'];
+            $dibayar = ($harga * $dpPersen) / 100;
+            $refund = 0;
+            if ($rowRes['status'] === 'Menunggu Verifikasi') {
+                $refund = $dibayar * 0.5;
+            } elseif ($rowRes['status'] === 'Diverifikasi' || $rowRes['status'] === 'Sedang Diproses') {
+                $refund = $dibayar * 0.35;
+            }
+            
+            $cancelStmt = mysqli_prepare($conn, "UPDATE reservasi SET status = 'Cancel', refund_amount = ? WHERE id_reservasi = ?");
+            mysqli_stmt_bind_param($cancelStmt, 'di', $refund, $idRes);
+            mysqli_stmt_execute($cancelStmt);
+            mysqli_stmt_close($cancelStmt);
+            
+            header("Location: riwayat_booking.php?msg=cancelled");
+            exit;
+        }
+    }
+    mysqli_stmt_close($stmt);
+}
+
 // Pastikan booking yang sudah selesai tercatat lunas di DB.
 $stmtLunas = mysqli_prepare($conn, "UPDATE reservasi SET status_dp = 100 WHERE id_user = ? AND status = 'Selesai' AND status_dp < 100");
 if ($stmtLunas) {
@@ -23,7 +62,7 @@ if ($stmtLunas) {
 }
 
 $riwayatList = [];
-$stmt = mysqli_prepare($conn, 'SELECT r.id_reservasi, r.schedule, r.status, r.status_dp, p.nama_paket, p.harga
+$stmt = mysqli_prepare($conn, 'SELECT r.id_reservasi, r.schedule, r.status, r.status_dp, r.refund_amount, p.nama_paket, p.harga
     FROM reservasi r
     JOIN paket p ON p.id_paket = r.id_paket
     WHERE r.id_user = ?
@@ -169,6 +208,13 @@ mysqli_stmt_close($stmt);
             <h2 class="fw-bold" style="color: #dc3545;"><i class="fas fa-history"></i> Daftar Pemesanan</h2>
         </div>
 
+        <?php if (isset($_GET['msg']) && $_GET['msg'] === 'cancelled'): ?>
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                Booking berhasil dibatalkan. Dana refund akan segera diproses.
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        <?php endif; ?>
+
         <?php if (count($riwayatList) === 0): ?>
             <div class="alert alert-info border-2 text-center py-5" id="alertNoData">
                 <i class="fas fa-inbox fa-3x text-muted mb-3 d-block"></i>
@@ -179,7 +225,9 @@ mysqli_stmt_close($stmt);
         <?php endif; ?>
 
         <div class="row">
-            <?php foreach ($riwayatList as $item): ?>
+            <?php 
+            $modalsHtml = '';
+            foreach ($riwayatList as $item): ?>
                 <?php
                 $harga = (float) $item['harga'];
                 $dp = (int) $item['status_dp'];
@@ -204,6 +252,8 @@ mysqli_stmt_close($stmt);
                     $badge = 'success';
                 } elseif ($item['status'] === 'Cancel') {
                     $badge = 'danger';
+                } elseif ($item['status'] === 'Refund Selesai') {
+                    $badge = 'dark';
                 }
                 ?>
                 <div class="col-md-12 mb-4">
@@ -219,8 +269,67 @@ mysqli_stmt_close($stmt);
                             <p class="mb-3">
                                 <strong>Total Paket:</strong> <span class="text-danger fw-bold">Rp<?php echo number_format($harga, 0, ',', '.'); ?></span><br>
                                 <strong>Dibayar (<?php echo $dp; ?>%):</strong> <span class="text-danger fw-bold">Rp<?php echo number_format($dibayar, 0, ',', '.'); ?></span><br>
-                                <strong>Sisa Pembayaran:</strong> <span class="text-danger fw-bold">Rp<?php echo number_format($sisa, 0, ',', '.'); ?></span>
+                                <?php if ($item['status'] !== 'Cancel' && $item['status'] !== 'Refund Selesai'): ?>
+                                    <strong>Sisa Pembayaran:</strong> <span class="text-danger fw-bold">Rp<?php echo number_format($sisa, 0, ',', '.'); ?></span>
+                                <?php endif; ?>
+                                <?php if (in_array($item['status'], ['Cancel', 'Refund Selesai']) && isset($item['refund_amount'])): ?>
+                                    <br><strong>Refund DP:</strong> <span class="text-success fw-bold">Rp<?php echo number_format((float)$item['refund_amount'], 0, ',', '.'); ?></span>
+                                <?php endif; ?>
                             </p>
+                            
+                            <?php if ($item['status'] !== 'Selesai' && $item['status'] !== 'Cancel' && $item['status'] !== 'Refund Selesai'): ?>
+                            <hr>
+                            <?php 
+                                $refundModalAmt = 0;
+                                $refundPercent = '';
+                                if ($item['status'] === 'Menunggu Verifikasi') {
+                                    $refundModalAmt = $dibayar * 0.5;
+                                    $refundPercent = '50%';
+                                } elseif ($item['status'] === 'Diverifikasi' || $item['status'] === 'Sedang Diproses') {
+                                    $refundModalAmt = $dibayar * 0.35;
+                                    $refundPercent = '35% dari DP';
+                                }
+                            ?>
+                            <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#cancelModal<?php echo $item['id_reservasi']; ?>">
+                                <i class="fas fa-times-circle"></i> Batalkan Booking
+                            </button>
+
+                            <?php
+                            ob_start();
+                            ?>
+                            <!-- Modal Konfirmasi Batal -->
+                            <div class="modal fade" id="cancelModal<?php echo $item['id_reservasi']; ?>" tabindex="-1" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content text-start">
+                                        <div class="modal-header bg-danger text-white">
+                                            <h5 class="modal-title"><i class="fas fa-exclamation-triangle"></i> Konfirmasi Pembatalan</h5>
+                                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <p>Apakah Anda yakin ingin membatalkan pesanan <strong>ID <?php echo $item['id_reservasi']; ?></strong>?</p>
+                                            <div class="alert alert-warning mb-0">
+                                                <strong>Info Refund:</strong><br>
+                                                Status pemesanan Anda saat ini adalah <strong><?php echo h($item['status']); ?></strong>.<br>
+                                                Dana DP yang sudah Anda bayarkan akan direfund sebesar <strong><?php echo $refundPercent; ?></strong>.<br><br>
+                                                Estimasi yang akan dikembalikan: <br>
+                                                <span class="fs-4 fw-bold text-success">Rp<?php echo number_format($refundModalAmt, 0, ',', '.'); ?></span>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                                            <form method="POST">
+                                                <input type="hidden" name="action" value="cancel_booking">
+                                                <input type="hidden" name="id_reservasi" value="<?php echo (int) $item['id_reservasi']; ?>">
+                                                <button type="submit" class="btn btn-danger">Ya, Batalkan Pesanan</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <?php
+                            $modalsHtml .= ob_get_clean();
+                            ?>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>
@@ -234,6 +343,8 @@ mysqli_stmt_close($stmt);
 </footer>
 
 </div>
+
+<?php echo $modalsHtml ?? ''; ?>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>

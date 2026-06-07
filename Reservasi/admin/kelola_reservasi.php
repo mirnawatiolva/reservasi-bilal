@@ -39,29 +39,53 @@ if ($checkBuktiColumn) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
-    $idUser = (int) ($_POST['id_user'] ?? 0);
-    $idPaket = (int) ($_POST['id_paket'] ?? 0);
-    $status = trim($_POST['status'] ?? '');
-    $statusDp = (int) ($_POST['status_dp'] ?? 100);
-    $scheduleInput = trim($_POST['schedule'] ?? '');
-    $schedule = $scheduleInput !== '' ? date('Y-m-d H:i:s', strtotime($scheduleInput)) : '';
 
-    if ($action === 'create' || $action === 'update') {
-        $allowedStatus = ['Menunggu Verifikasi', 'Sedang Diproses', 'Diverifikasi', 'Selesai', 'Cancel'];
+    if ($action === 'create') {
+        $idUser = (int) ($_POST['id_user'] ?? 0);
+        $idPaket = (int) ($_POST['id_paket'] ?? 0);
+        $status = trim($_POST['status'] ?? '');
+        $statusDp = (int) ($_POST['status_dp'] ?? 100);
+        $bookingDate = trim($_POST['booking_date'] ?? '');
+        $bookingTime = trim($_POST['booking_time'] ?? '');
+        $schedule = ($bookingDate !== '' && $bookingTime !== '') ? date('Y-m-d H:i:s', strtotime($bookingDate . ' ' . $bookingTime)) : '';
+        $allowedStatus = ['Menunggu Verifikasi', 'Diverifikasi', 'Selesai', 'Cancel', 'Refund Selesai'];
+        
         if ($status === 'Selesai') {
             $statusDp = 100;
         }
+        
         if ($idUser <= 0 || $idPaket <= 0 || $status === '' || $schedule === '' || !in_array($statusDp, [50, 100], true) || !in_array($status, $allowedStatus, true)) {
             $message = 'Data reservasi belum lengkap.';
             $messageType = 'danger';
         } else {
-            if ($action === 'create') {
+            $isCollision = false;
+            if ($status !== 'Cancel' && $status !== 'Refund Selesai') {
+                $collisionQuery = "SELECT COUNT(*) as count FROM reservasi WHERE status NOT IN ('Cancel', 'Refund Selesai') AND DATE(schedule) = ? AND TIME(schedule) = ?";
+                $stmt_check = mysqli_prepare($conn, $collisionQuery);
+                if ($stmt_check) {
+                    $checkDate = date('Y-m-d', strtotime($bookingDate));
+                    $checkTime = date('H:i:s', strtotime($bookingTime));
+                    mysqli_stmt_bind_param($stmt_check, 'ss', $checkDate, $checkTime);
+                    mysqli_stmt_execute($stmt_check);
+                    $res_check = mysqli_stmt_get_result($stmt_check);
+                    $row_check = mysqli_fetch_assoc($res_check);
+                    mysqli_stmt_close($stmt_check);
+                    if ($row_check && (int)$row_check['count'] > 0) {
+                        $isCollision = true;
+                    }
+                }
+            }
+
+            if ($isCollision) {
+                $message = 'Gagal menyimpan. Jadwal booking bertabrakan dengan pemesanan lain (selisih kurang dari 2 jam).';
+                $messageType = 'danger';
+            } else {
                 $stmt = mysqli_prepare($conn, 'INSERT INTO reservasi (id_user, id_paket, status, status_dp, schedule) VALUES (?, ?, ?, ?, ?)');
                 mysqli_stmt_bind_param($stmt, 'iisis', $idUser, $idPaket, $status, $statusDp, $schedule);
                 mysqli_stmt_execute($stmt);
                 mysqli_stmt_close($stmt);
 
-                if (in_array($status, ['Selesai', 'Cancel'], true)) {
+                if (in_array($status, ['Selesai', 'Refund Selesai'], true)) {
                     header('Location: kelola_riwayat.php?msg=tambah_berhasil');
                     exit;
                 }
@@ -69,14 +93,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 header('Location: kelola_reservasi.php?msg=tambah_berhasil');
                 exit;
             }
+        }
+    }
 
-            $idReservasi = (int) ($_POST['id_reservasi'] ?? 0);
-            $stmt = mysqli_prepare($conn, 'UPDATE reservasi SET id_user = ?, id_paket = ?, status = ?, status_dp = ?, schedule = ? WHERE id_reservasi = ?');
-            mysqli_stmt_bind_param($stmt, 'iisisi', $idUser, $idPaket, $status, $statusDp, $schedule, $idReservasi);
+    if ($action === 'update') {
+        $idReservasi = (int) ($_POST['id_reservasi'] ?? 0);
+        $status = trim($_POST['status'] ?? '');
+        $allowedStatus = ['Menunggu Verifikasi', 'Diverifikasi', 'Selesai', 'Cancel', 'Refund Selesai'];
+
+        if ($idReservasi <= 0 || $status === '' || !in_array($status, $allowedStatus, true)) {
+            $message = 'Data edit tidak valid.';
+            $messageType = 'danger';
+        } else {
+            if ($status === 'Selesai') {
+                $stmt = mysqli_prepare($conn, 'UPDATE reservasi SET status = ?, status_dp = 100 WHERE id_reservasi = ?');
+                mysqli_stmt_bind_param($stmt, 'si', $status, $idReservasi);
+            } else {
+                $stmt = mysqli_prepare($conn, 'UPDATE reservasi SET status = ? WHERE id_reservasi = ?');
+                mysqli_stmt_bind_param($stmt, 'si', $status, $idReservasi);
+            }
+            
             mysqli_stmt_execute($stmt);
             mysqli_stmt_close($stmt);
 
-            if (in_array($status, ['Selesai', 'Cancel'], true)) {
+            if (in_array($status, ['Selesai', 'Refund Selesai'], true)) {
                 header('Location: kelola_riwayat.php?msg=ubah_berhasil');
                 exit;
             }
@@ -129,11 +169,11 @@ if ($paketResult) {
 }
 
 $reservasiList = [];
-$sql = 'SELECT r.id_reservasi, r.id_user, r.id_paket, r.status, r.status_dp, r.bukti_pembayaran, r.schedule, u.username, u.No_Telepon, p.nama_paket, p.harga
+$sql = 'SELECT r.id_reservasi, r.id_user, r.id_paket, r.status, r.status_dp, r.bukti_pembayaran, r.refund_amount, r.schedule, u.username, u.No_Telepon, p.nama_paket, p.harga
         FROM reservasi r
         JOIN `user` u ON u.id_user = r.id_user
         JOIN paket p ON p.id_paket = r.id_paket
-    WHERE r.status NOT IN ("Selesai", "Cancel")
+    WHERE r.status NOT IN ("Selesai", "Refund Selesai")
         ORDER BY r.id_reservasi DESC';
 $reservasiResult = mysqli_query($conn, $sql);
 if ($reservasiResult) {
@@ -143,7 +183,7 @@ if ($reservasiResult) {
     mysqli_free_result($reservasiResult);
 }
 
-$statusOptions = ['Menunggu Verifikasi', 'Sedang Diproses', 'Diverifikasi', 'Selesai', 'Cancel'];
+$statusOptions = ['Menunggu Verifikasi', 'Diverifikasi', 'Selesai', 'Cancel', 'Refund Selesai'];
 $statusDpOptions = [50, 100];
 ?>
 <!DOCTYPE html>
@@ -192,9 +232,24 @@ $statusDpOptions = [50, 100];
 
             <div class="card mb-4">
                 <div class="card-body">
-                    <div class="row g-3">
-                        <div class="col-md-4">
+                    <div class="row g-3 align-items-center">
+                        <div class="col-md-3">
                             <input type="text" class="form-control" id="searchReservasi" placeholder="Cari reservasi...">
+                        </div>
+                        <div class="col-md-9 text-md-end">
+                            <div class="btn-group" role="group" aria-label="Filter Status">
+                                <input type="radio" class="btn-check" name="filterStatus" id="filterAll" autocomplete="off" value="" checked>
+                                <label class="btn btn-outline-secondary" for="filterAll">Semua</label>
+
+                                <input type="radio" class="btn-check" name="filterStatus" id="filterMenunggu" autocomplete="off" value="Menunggu Verifikasi">
+                                <label class="btn btn-outline-warning" for="filterMenunggu">Menunggu</label>
+
+                                <input type="radio" class="btn-check" name="filterStatus" id="filterDiverifikasi" autocomplete="off" value="Diverifikasi">
+                                <label class="btn btn-outline-info" for="filterDiverifikasi">Diverifikasi</label>
+                                
+                                <input type="radio" class="btn-check" name="filterStatus" id="filterCancel" autocomplete="off" value="Cancel">
+                                <label class="btn btn-outline-danger" for="filterCancel">Cancel</label>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -214,6 +269,7 @@ $statusDpOptions = [50, 100];
                                 <th>Bukti Pembayaran</th>
                                 <th>Schedule</th>
                                 <th>Status</th>
+                                <th>Refund</th>
                                 <th>Aksi</th>
                             </tr>
                             </thead>
@@ -259,9 +315,18 @@ $statusDpOptions = [50, 100];
                                             $badge = 'success';
                                         } elseif ($row['status'] === 'Cancel') {
                                             $badge = 'danger';
+                                        } elseif ($row['status'] === 'Refund Selesai') {
+                                            $badge = 'dark';
                                         }
                                         ?>
                                         <span class="badge bg-<?php echo h($badge); ?>"><?php echo h($row['status']); ?></span>
+                                    </td>
+                                    <td>
+                                        <?php if ($row['status'] === 'Cancel' && isset($row['refund_amount'])): ?>
+                                            <span class="text-danger fw-bold">Rp<?php echo number_format((float)$row['refund_amount'], 0, ',', '.'); ?></span>
+                                        <?php else: ?>
+                                            <span class="text-muted">-</span>
+                                        <?php endif; ?>
                                     </td>
                                     <td>
                                         <?php
@@ -288,6 +353,10 @@ $statusDpOptions = [50, 100];
                                             data-status="<?php echo h($row['status']); ?>"
                                             data-status-dp="<?php echo (int) $row['status_dp']; ?>"
                                             data-schedule="<?php echo h(date('Y-m-d\TH:i', strtotime($row['schedule']))); ?>"
+                                            data-username="<?php echo h($row['username']); ?>"
+                                            data-nama-paket="<?php echo h($row['nama_paket']); ?>"
+                                            data-wa="<?php echo h($waNumber); ?>"
+                                            data-schedule-formatted="<?php echo h(date('d-m-Y H:i', strtotime($row['schedule']))); ?>"
                                             onclick="setEditReservasi(this)">
                                             Edit
                                         </button>
@@ -338,8 +407,15 @@ $statusDpOptions = [50, 100];
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Schedule</label>
-                        <input type="datetime-local" class="form-control" name="schedule" required>
+                        <label class="form-label">Tanggal Booking</label>
+                        <input type="date" class="form-control" name="booking_date" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Sesi Waktu</label>
+                        <select class="form-select" name="booking_time" required>
+                            <option value="08:00:00">Sesi Pagi (08:00 - 12:30)</option>
+                            <option value="12:30:00">Sesi Siang (12:30 - 17:00)</option>
+                        </select>
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Status DP</label>
@@ -378,40 +454,35 @@ $statusDpOptions = [50, 100];
                 <div class="modal-body">
                     <input type="hidden" name="action" value="update">
                     <input type="hidden" name="id_reservasi" id="edit_id_reservasi">
-                    <div class="alert alert-info small">
+                    <div class="alert alert-info small mb-3">
                         Jika status <strong>Selesai</strong>, DP otomatis menjadi <strong>100%</strong> dan data akan masuk ke Riwayat Booking.
                     </div>
+
                     <div class="mb-3">
-                        <label class="form-label">Pelanggan</label>
-                        <select class="form-select" name="id_user" id="edit_id_user" required>
-                            <?php foreach ($userList as $user): ?>
-                                <option value="<?php echo (int) $user['id_user']; ?>"><?php echo h($user['username']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
+                        <label class="form-label text-muted mb-1">Detail Reservasi</label>
+                        <div class="p-3 border rounded bg-light small">
+                            <div class="row mb-1">
+                                <div class="col-4 fw-bold">Pelanggan</div>
+                                <div class="col-8" id="edit_info_username"></div>
+                            </div>
+                            <div class="row mb-1">
+                                <div class="col-4 fw-bold">No WA</div>
+                                <div class="col-8" id="edit_info_wa"></div>
+                            </div>
+                            <div class="row mb-1">
+                                <div class="col-4 fw-bold">Paket</div>
+                                <div class="col-8" id="edit_info_paket"></div>
+                            </div>
+                            <div class="row">
+                                <div class="col-4 fw-bold">Jadwal</div>
+                                <div class="col-8" id="edit_info_schedule"></div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Paket</label>
-                        <select class="form-select" name="id_paket" id="edit_id_paket" required>
-                            <?php foreach ($paketList as $paket): ?>
-                                <option value="<?php echo (int) $paket['id_paket']; ?>"><?php echo h($paket['nama_paket']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Schedule</label>
-                        <input type="datetime-local" class="form-control" name="schedule" id="edit_schedule" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Status DP</label>
-                        <select class="form-select" name="status_dp" id="edit_status_dp" required>
-                            <?php foreach ($statusDpOptions as $dp): ?>
-                                <option value="<?php echo (int) $dp; ?>"><?php echo (int) $dp; ?>%</option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
+
                     <div class="mb-3">
                         <label class="form-label">Status</label>
-                        <select class="form-select" name="status" id="edit_status" required onchange="syncDpWithStatus('edit_status', 'edit_status_dp')">
+                        <select class="form-select" name="status" id="edit_status" required>
                             <?php foreach ($statusOptions as $status): ?>
                                 <option value="<?php echo h($status); ?>"><?php echo h($status); ?></option>
                             <?php endforeach; ?>
@@ -430,8 +501,6 @@ $statusDpOptions = [50, 100];
 <script src="../bootstrap/js/bootstrap.bundle.min.js"></script>
 <script src="script.js"></script>
 <script>
-setupTableSearch('searchReservasi', 'reservasiTable');
-
 function syncDpWithStatus(statusId, dpId) {
     const statusSelect = document.getElementById(statusId);
     const dpSelect = document.getElementById(dpId);
@@ -452,16 +521,53 @@ function syncDpWithStatus(statusId, dpId) {
 
 function setEditReservasi(button) {
     document.getElementById('edit_id_reservasi').value = button.getAttribute('data-id');
-    document.getElementById('edit_id_user').value = button.getAttribute('data-id-user');
-    document.getElementById('edit_id_paket').value = button.getAttribute('data-id-paket');
     document.getElementById('edit_status').value = button.getAttribute('data-status');
-    document.getElementById('edit_status_dp').value = button.getAttribute('data-status-dp');
-    document.getElementById('edit_schedule').value = button.getAttribute('data-schedule');
-    syncDpWithStatus('edit_status', 'edit_status_dp');
+    
+    document.getElementById('edit_info_username').textContent = button.getAttribute('data-username') || '-';
+    document.getElementById('edit_info_wa').textContent = button.getAttribute('data-wa') || '-';
+    document.getElementById('edit_info_paket').textContent = button.getAttribute('data-nama-paket') || '-';
+    document.getElementById('edit_info_schedule').textContent = button.getAttribute('data-schedule-formatted') || '-';
 }
 
 document.addEventListener('DOMContentLoaded', function() {
     syncDpWithStatus('create_status', 'create_status_dp');
+
+    // Filter and Search Logic
+    const searchInput = document.getElementById('searchReservasi');
+    const filterRadios = document.querySelectorAll('input[name="filterStatus"]');
+    const tableBody = document.querySelector('#reservasiTable tbody');
+
+    function filterTable() {
+        const searchText = searchInput.value.toLowerCase();
+        let selectedStatus = '';
+        filterRadios.forEach(r => {
+            if (r.checked) selectedStatus = r.value;
+        });
+
+        const rows = tableBody.querySelectorAll('tr');
+        rows.forEach(row => {
+            // Abaikan row jika itu pesan "Belum ada data"
+            if (row.cells.length === 1) return;
+
+            const textContent = row.textContent.toLowerCase();
+            const statusBadge = row.querySelector('.badge');
+            const statusText = statusBadge ? statusBadge.textContent.trim() : '';
+
+            const matchesSearch = textContent.includes(searchText);
+            const matchesStatus = selectedStatus === '' || statusText === selectedStatus;
+
+            if (matchesSearch && matchesStatus) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    if(searchInput) {
+        searchInput.addEventListener('input', filterTable);
+    }
+    filterRadios.forEach(r => r.addEventListener('change', filterTable));
 });
 </script>
 </body>

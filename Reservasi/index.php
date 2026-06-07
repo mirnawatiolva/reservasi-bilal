@@ -32,6 +32,15 @@ if ($resultTentang) {
     mysqli_free_result($resultTentang);
 }
 
+$heroList = [];
+$resultHero = mysqli_query($conn, 'SELECT id_hero, judul, deskripsi FROM `hero_section` ORDER BY id_hero DESC');
+if ($resultHero) {
+    while ($row = mysqli_fetch_assoc($resultHero)) {
+        $heroList[] = $row;
+    }
+    mysqli_free_result($resultHero);
+}
+
 $isLoggedIn = isset($_SESSION['user_id']);
 $username = $_SESSION['username'] ?? '';
 ?>
@@ -801,11 +810,47 @@ $username = $_SESSION['username'] ?? '';
     <div class="hero-overlay-shape shape-b" aria-hidden="true"></div>
     <div class="container">
         <div class="hero-content" id="heroParallax">
-        <h1 class="display-2 fw-bold mb-3 hero-title">Detailing Mobil Premium</h1>
-        <p class="lead mb-3" style="font-size: 1.24rem;">Transformasi kendaraan Anda dengan layanan detailing terbaik, presisi showroom-level, dan sentuhan profesional berkelas.</p>
-        <div class="d-flex gap-3 justify-content-center flex-wrap">
-            <a href="reservasi.php" class="btn btn-danger btn-lg px-5 fw-bold btn-hero"><i class="fas fa-calendar-check"></i> Reservasi Sekarang</a>
-        </div>
+            <?php if (count($heroList) > 0): ?>
+                <div id="heroCarousel" class="carousel slide" data-bs-ride="carousel">
+                    <!-- Indicators/dots -->
+                    <div class="carousel-indicators" style="bottom: -20px;">
+                        <?php foreach ($heroList as $index => $hero): ?>
+                            <button type="button" data-bs-target="#heroCarousel" data-bs-slide-to="<?php echo $index; ?>" class="<?php echo $index === 0 ? 'active' : ''; ?>" aria-current="<?php echo $index === 0 ? 'true' : 'false'; ?>" aria-label="Slide <?php echo $index + 1; ?>"></button>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <!-- The slideshow/carousel -->
+                    <div class="carousel-inner">
+                        <?php foreach ($heroList as $index => $hero): ?>
+                            <div class="carousel-item <?php echo $index === 0 ? 'active' : ''; ?>">
+                                <h1 class="display-2 fw-bold mb-3 hero-title"><?php echo h($hero['judul']); ?></h1>
+                                <div class="lead mb-3" style="font-size: 1.24rem;">
+                                    <?php echo $hero['deskripsi']; ?>
+                                </div>
+                                <div class="d-flex gap-3 justify-content-center flex-wrap mt-4">
+                                    <a href="reservasi.php" class="btn btn-danger btn-lg px-5 fw-bold btn-hero"><i class="fas fa-calendar-check"></i> Reservasi Sekarang</a>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <!-- Left and right controls/icons -->
+                    <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev" style="width: 5%;">
+                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Previous</span>
+                    </button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next" style="width: 5%;">
+                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Next</span>
+                    </button>
+                </div>
+            <?php else: ?>
+                <h1 class="display-2 fw-bold mb-3 hero-title">Detailing Mobil Premium</h1>
+                <p class="lead mb-3" style="font-size: 1.24rem;">Transformasi kendaraan Anda dengan layanan detailing terbaik, presisi showroom-level, dan sentuhan profesional berkelas.</p>
+                <div class="d-flex gap-3 justify-content-center flex-wrap mt-4">
+                    <a href="reservasi.php" class="btn btn-danger btn-lg px-5 fw-bold btn-hero"><i class="fas fa-calendar-check"></i> Reservasi Sekarang</a>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 </section>

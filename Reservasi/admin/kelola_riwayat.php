@@ -94,11 +94,11 @@ if ($paketResult) {
 }
 
 $riwayatList = [];
-$sql = "SELECT r.id_reservasi, r.id_user, r.id_paket, r.status, r.schedule, r.bukti_pembayaran, u.username, p.nama_paket, p.harga
+$sql = "SELECT r.id_reservasi, r.id_user, r.id_paket, r.status, r.schedule, r.bukti_pembayaran, r.refund_amount, u.username, p.nama_paket, p.harga
         FROM reservasi r
         JOIN `user` u ON u.id_user = r.id_user
         JOIN paket p ON p.id_paket = r.id_paket
-        WHERE r.status IN ('Selesai', 'Cancel')
+        WHERE r.status IN ('Selesai', 'Refund Selesai')
         ORDER BY r.id_reservasi DESC";
 $resultRiwayat = mysqli_query($conn, $sql);
 if ($resultRiwayat) {
@@ -108,7 +108,7 @@ if ($resultRiwayat) {
     mysqli_free_result($resultRiwayat);
 }
 
-$statusOptions = ['Selesai', 'Cancel'];
+$statusOptions = ['Selesai', 'Refund Selesai'];
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -177,11 +177,12 @@ $statusOptions = ['Selesai', 'Cancel'];
                                 <th>Total Pembayaran</th>
                                 <th>Bukti Pembayaran</th>
                                 <th>Status</th>
+                                <th>Refund</th>
                             </tr>
                             </thead>
                             <tbody>
                             <?php if (count($riwayatList) === 0): ?>
-                                <tr><td colspan="7" class="text-center text-muted">Belum ada data riwayat selesai/cancel.</td></tr>
+                                <tr><td colspan="8" class="text-center text-muted">Belum ada data riwayat selesai/cancel.</td></tr>
                             <?php endif; ?>
                             <?php foreach ($riwayatList as $row): ?>
                                 <tr>
@@ -202,8 +203,17 @@ $statusOptions = ['Selesai', 'Cancel'];
                                     <td>
                                         <?php if ($row['status'] === 'Selesai'): ?>
                                             <span class="badge bg-success">Selesai</span>
+                                        <?php elseif ($row['status'] === 'Refund Selesai'): ?>
+                                            <span class="badge bg-dark">Refund Selesai</span>
                                         <?php else: ?>
-                                            <span class="badge bg-danger">Cancel</span>
+                                            <span class="badge bg-danger"><?php echo h($row['status']); ?></span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($row['status'] === 'Refund Selesai' && isset($row['refund_amount'])): ?>
+                                            <span class="text-danger fw-bold">Rp<?php echo number_format((float)$row['refund_amount'], 0, ',', '.'); ?></span>
+                                        <?php else: ?>
+                                            <span class="text-muted">-</span>
                                         <?php endif; ?>
                                     </td>
                                 </tr>

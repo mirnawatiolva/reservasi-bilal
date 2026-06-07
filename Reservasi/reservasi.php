@@ -39,12 +39,13 @@ if ($result) {
 $selectedPaketId = (int) ($_GET['paket_id'] ?? 0);
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $selectedPaketId = (int) ($_POST['id_paket'] ?? 0);
-    $scheduleInput = trim($_POST['schedule'] ?? '');
+    $bookingDate = trim($_POST['booking_date'] ?? '');
+    $bookingTime = trim($_POST['booking_time'] ?? '');
     $statusDp = (int) ($_POST['status_dp'] ?? 50);
     $buktiPath = null;
     $buktiFile = $_FILES['bukti_pembayaran'] ?? null;
 
-    if (!isset($paketMap[$selectedPaketId]) || $scheduleInput === '' || !in_array($statusDp, [50, 100], true)) {
+    if (!isset($paketMap[$selectedPaketId]) || $bookingDate === '' || $bookingTime === '' || !in_array($statusDp, [50, 100], true)) {
         $message = 'Data reservasi tidak valid.';
     } elseif (!$buktiFile || !isset($buktiFile['error']) || $buktiFile['error'] !== UPLOAD_ERR_OK) {
         $message = 'Bukti pembayaran wajib diunggah.';
@@ -80,10 +81,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($message === '') {
-        $schedule = date('Y-m-d H:i:s', strtotime($scheduleInput));
+        $schedule = date('Y-m-d H:i:s', strtotime($bookingDate . ' ' . $bookingTime));
         $status = 'Menunggu Verifikasi';
         $idUser = (int) $_SESSION['user_id'];
 
+        // Cek apakah slot di tanggal tersebut sudah terisi (maks 2 mobil per hari: slot pagi dan siang)
+        $collisionQuery = "SELECT COUNT(*) as count FROM reservasi WHERE status NOT IN ('Cancel', 'Refund Selesai') AND DATE(schedule) = ? AND TIME(schedule) = ?";
+        $stmt_check = mysqli_prepare($conn, $collisionQuery);
+        if ($stmt_check) {
+            $checkDate = date('Y-m-d', strtotime($bookingDate));
+            $checkTime = date('H:i:s', strtotime($bookingTime));
+            mysqli_stmt_bind_param($stmt_check, 'ss', $checkDate, $checkTime);
+            mysqli_stmt_execute($stmt_check);
+            $res_check = mysqli_stmt_get_result($stmt_check);
+            $row_check = mysqli_fetch_assoc($res_check);
+            mysqli_stmt_close($stmt_check);
+
+            if ($row_check && (int)$row_check['count'] > 0) {
+                $sesiText = ($checkTime === '08:00:00') ? 'Pagi (08:00 - 12:30)' : 'Siang (12:30 - 17:00)';
+                $message = "Maaf, Sesi $sesiText pada tanggal $checkDate sudah dipesan. Silakan pilih sesi atau tanggal lain.";
+                if ($buktiPath && is_file($uploadDir . '/' . $newFileName)) {
+                    unlink($uploadDir . '/' . $newFileName);
+                }
+            }
+        }
+    }
+
+    if ($message === '') {
         $stmt = mysqli_prepare($conn, 'INSERT INTO reservasi (id_user, id_paket, status, status_dp, bukti_pembayaran, schedule) VALUES (?, ?, ?, ?, ?, ?)');
         if ($stmt) {
             mysqli_stmt_bind_param($stmt, 'iisiss', $idUser, $selectedPaketId, $status, $statusDp, $buktiPath, $schedule);
@@ -308,8 +332,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
 
                             <div class="mb-4">
-                                <label for="schedule" class="form-label fw-bold">Jadwal Booking</label>
-                                <input type="datetime-local" class="form-control form-control-lg border-2" id="schedule" name="schedule" required>
+                                <label for="booking_date" class="form-label fw-bold">Tanggal Booking</label>
+                                <input type="date" class="form-control form-control-lg border-2" id="booking_date" name="booking_date" required min="<?php echo date('Y-m-d', strtotime('+1 day')); ?>" onchange="checkSlotAvailability()">
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label fw-bold">Pilih Sesi (Maks 2 Mobil / Hari)</label>
+                                <div class="row g-3" id="slotContainer">
+                                    <div class="col-md-6">
+                                        <input type="radio" class="btn-check" name="booking_time" id="slot1" value="08:00:00" required>
+                                        <label class="btn btn-outline-danger w-100 p-3 h-100 d-flex flex-column align-items-center justify-content-center slot-label" for="slot1" id="label_slot1">
+                                            <i class="fas fa-sun fs-2 mb-2"></i>
+                                            <span class="fw-bold">Sesi Pagi</span>
+                                            <small>08:00 - 12:30 WIB</small>
+                                            <span class="badge bg-success mt-2 slot-status" id="status_slot1">Tersedia</span>
+                                        </label>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <input type="radio" class="btn-check" name="booking_time" id="slot2" value="12:30:00" required>
+                                        <label class="btn btn-outline-danger w-100 p-3 h-100 d-flex flex-column align-items-center justify-content-center slot-label" for="slot2" id="label_slot2">
+                                            <i class="fas fa-cloud-sun fs-2 mb-2"></i>
+                                            <span class="fw-bold">Sesi Siang</span>
+                                            <small>12:30 - 17:00 WIB</small>
+                                            <span class="badge bg-success mt-2 slot-status" id="status_slot2">Tersedia</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div id="slotWarning" class="text-danger mt-2 small fw-bold" style="display:none;"><i class="fas fa-info-circle"></i> Semua sesi pada tanggal ini sudah penuh. Silakan pilih tanggal lain.</div>
                             </div>
 
                             <div class="mb-4">
@@ -421,6 +470,66 @@ function formatTanggalId(datetime) {
         hour: '2-digit',
         minute: '2-digit'
     }) + ' WIB';
+}
+
+function checkSlotAvailability() {
+    const dateInput = document.getElementById('booking_date');
+    const warning = document.getElementById('slotWarning');
+    const dateVal = dateInput.value;
+    
+    warning.style.display = 'none';
+    
+    // Reset defaults
+    const slot1 = document.getElementById('slot1');
+    const slot2 = document.getElementById('slot2');
+    const status1 = document.getElementById('status_slot1');
+    const status2 = document.getElementById('status_slot2');
+    const label1 = document.getElementById('label_slot1');
+    const label2 = document.getElementById('label_slot2');
+    
+    slot1.disabled = false;
+    slot2.disabled = false;
+    slot1.checked = false;
+    slot2.checked = false;
+    status1.className = 'badge bg-success mt-2 slot-status';
+    status1.innerText = 'Tersedia';
+    status2.className = 'badge bg-success mt-2 slot-status';
+    status2.innerText = 'Tersedia';
+    label1.classList.remove('opacity-50', 'bg-light');
+    label2.classList.remove('opacity-50', 'bg-light');
+
+    if (!dateVal) return;
+
+    fetch('check_availability.php?date=' + dateVal)
+        .then(res => res.json())
+        .then(data => {
+            if (data.booked_slots) {
+                let bookedCount = 0;
+                
+                if (data.booked_slots.includes('08:00:00')) {
+                    slot1.disabled = true;
+                    status1.className = 'badge bg-secondary mt-2 slot-status';
+                    status1.innerText = 'Penuh';
+                    label1.classList.add('opacity-50', 'bg-light');
+                    bookedCount++;
+                }
+                
+                if (data.booked_slots.includes('12:30:00')) {
+                    slot2.disabled = true;
+                    status2.className = 'badge bg-secondary mt-2 slot-status';
+                    status2.innerText = 'Penuh';
+                    label2.classList.add('opacity-50', 'bg-light');
+                    bookedCount++;
+                }
+                
+                if (bookedCount === 2) {
+                    warning.innerText = 'Semua sesi pada tanggal ini sudah penuh. Silakan pilih tanggal lain.';
+                    warning.style.display = 'block';
+                    dateInput.value = ''; // Reset date if fully booked
+                }
+            }
+        })
+        .catch(err => console.error('Error fetching availability:', err));
 }
 
 function buildNotaPreview(invoice) {

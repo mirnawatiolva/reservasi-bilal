@@ -41,19 +41,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-// Set active menu item
-function setActiveMenu(href) {
-    const links = document.querySelectorAll('.sidebar a');
-    links.forEach(link => {
-        link.classList.remove('active');
-        if (link.getAttribute('href') === href) {
-            link.classList.add('active');
-        }
-    });
-}
-
-// Auto set active menu based on current page
-document.addEventListener('DOMContentLoaded', function() {
     const currentPage = window.location.pathname.split('/').pop() || 'index.php';
     setActiveMenu(currentPage);
 
@@ -73,6 +60,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+// Set active menu item
+function setActiveMenu(href) {
+    const links = document.querySelectorAll('.sidebar a');
+    links.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === href) {
+            link.classList.add('active');
+        }
+    });
+}
 
 // Logout function
 function logout() {
