@@ -23,6 +23,15 @@ if ($result) {
     mysqli_free_result($result);
 }
 
+$tentangKamiList = [];
+$resultTentang = mysqli_query($conn, 'SELECT id_tentang_kami, judul, foto, deskripsi FROM `tentang_kami` ORDER BY id_tentang_kami DESC');
+if ($resultTentang) {
+    while ($row = mysqli_fetch_assoc($resultTentang)) {
+        $tentangKamiList[] = $row;
+    }
+    mysqli_free_result($resultTentang);
+}
+
 $isLoggedIn = isset($_SESSION['user_id']);
 $username = $_SESSION['username'] ?? '';
 ?>
@@ -600,8 +609,31 @@ $username = $_SESSION['username'] ?? '';
                 box-shadow: 0 7px 18px rgba(0, 0, 0, 0.14);
             }
             50% {
-                box-shadow: 0 10px 24px rgba(194, 46, 66, 0.28);
+                box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
             }
+        }
+
+        #tentang ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        #tentang ul li {
+            position: relative;
+            padding-left: 30px;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+
+        #tentang ul li::before {
+            content: "\f058"; /* fa-check-circle */
+            font-family: "Font Awesome 6 Free" !important;
+            font-weight: 900;
+            position: absolute;
+            left: 0;
+            top: 2px;
+            color: #dc3545; /* text-danger */
+            font-size: 1.1rem;
         }
 
         .reveal-item {
@@ -781,23 +813,27 @@ $username = $_SESSION['username'] ?? '';
 <section id="tentang" class="py-5 bg-light">
     <div class="container">
         <h2 class="text-center mb-5 fw-bold" style="color: #dc3545;"><i class="fas fa-info-circle"></i> Tentang Kami</h2>
-        <div class="row align-items-center">
-            <div class="col-lg-6 mb-4">
-                <img src="asset/foto/tentang.jpg" alt="Tentang Kami" class="img-fluid rounded-lg shadow" loading="lazy" decoding="async">
-            </div>
-            <div class="col-lg-6">
-                <h3 class="mb-3 fw-bold">Detailing Berstandar Profesional untuk Kendaraan Harian Hingga Premium</h3>
-                <p class="text-muted mb-3">Exco Detailing hadir sebagai partner perawatan kendaraan yang mengutamakan kualitas proses, ketelitian finishing, dan kepuasan pelanggan jangka panjang. Kami memadukan teknik detailing modern, material premium, serta SOP yang konsisten untuk menjaga tampilan mobil tetap prima.</p>
-                <p class="text-muted mb-3">Fokus kami bukan hanya membuat kendaraan terlihat bersih, tetapi juga menjaga nilai estetika dan proteksi cat agar lebih tahan terhadap cuaca, debu, dan pemakaian harian.</p>
-                <ul class="list-unstyled mb-4">
-                    <li class="mb-2"><i class="fas fa-check-circle text-danger"></i> Produk & Material Premium Grade</li>
-                    <li class="mb-2"><i class="fas fa-check-circle text-danger"></i> Teknisi Bersertifikasi Internal</li>
-                    <li class="mb-2"><i class="fas fa-check-circle text-danger"></i> Proses QC Berlapis Sebelum Serah Terima</li>
-                    <li class="mb-2"><i class="fas fa-check-circle text-danger"></i> Konsultasi Paket Sesuai Kebutuhan Kendaraan</li>
-                </ul>
+        <?php foreach ($tentangKamiList as $tentangKami): ?>
+            <div class="row align-items-center mb-5 reveal-item reveal-left">
+                <div class="col-lg-6 mb-4">
+                    <img src="asset/tentang-kami/<?php echo h($tentangKami['foto']); ?>" alt="<?php echo h($tentangKami['judul']); ?>" class="img-fluid rounded-lg shadow" loading="lazy" decoding="async">
+                </div>
+                <div class="col-lg-6">
+                    <h3 class="mb-3 fw-bold"><?php echo h($tentangKami['judul']); ?></h3>
+                    <div class="text-muted mb-3">
+                        <?php echo $tentangKami['deskripsi']; ?>
+                    </div>
                 </div>
             </div>
-        </div>
+        <?php endforeach; ?>
+
+        <?php if (count($tentangKamiList) === 0): ?>
+            <div class="row align-items-center">
+                <div class="col-12">
+                    <div class="alert alert-info">Belum ada data tentang kami.</div>
+                </div>
+            </div>
+        <?php endif; ?>
     </div>
 </section>
 
