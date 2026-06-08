@@ -277,7 +277,7 @@ section h2::after {
 
 footer {
     border-top: 2px solid var(--primary-color);
-    margin-top: 50px;
+    margin-top: 0px !important;
 }
 
 footer a {
