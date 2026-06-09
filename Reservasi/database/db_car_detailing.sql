@@ -44,6 +44,26 @@ INSERT INTO `admin` (`id_admin`, `username`, `password`, `email`) VALUES
 -- --------------------------------------------------------
 
 --
+-- Struktur dari tabel `hero_section`
+--
+
+CREATE TABLE `hero_section` (
+  `id_hero` int(11) NOT NULL,
+  `judul` varchar(255) NOT NULL,
+  `deskripsi` text DEFAULT NULL,
+  `foto` varchar(255) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data untuk tabel `hero_section`
+--
+
+INSERT INTO `hero_section` (`id_hero`, `judul`, `deskripsi`, `foto`) VALUES
+(1, 'Detailing Mobil Premium', 'Transformasi kendaraan Anda dengan layanan detailing terbaik, presisi showroom-level, dan sentuhan profesional berkelas.', NULL);
+
+-- --------------------------------------------------------
+
+--
 -- Struktur dari tabel `paket`
 --
 
@@ -145,6 +165,12 @@ ALTER TABLE `admin`
   ADD PRIMARY KEY (`id_admin`);
 
 --
+-- Indeks untuk tabel `hero_section`
+--
+ALTER TABLE `hero_section`
+  ADD PRIMARY KEY (`id_hero`);
+
+--
 -- Indeks untuk tabel `paket`
 --
 ALTER TABLE `paket`
@@ -179,6 +205,12 @@ ALTER TABLE `user`
 --
 ALTER TABLE `admin`
   MODIFY `id_admin` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT untuk tabel `hero_section`
+--
+ALTER TABLE `hero_section`
+  MODIFY `id_hero` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT untuk tabel `paket`

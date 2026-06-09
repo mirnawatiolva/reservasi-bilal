@@ -32,6 +32,20 @@ if ($resultTentang) {
     mysqli_free_result($resultTentang);
 }
 
+$isLoggedIn = isset($_SESSION['user_id']);
+$username = $_SESSION['username'] ?? '';
+
+$checkHeroTable = mysqli_query($conn, "SHOW TABLES LIKE 'hero_section'");
+if ($checkHeroTable && mysqli_num_rows($checkHeroTable) === 0) {
+    mysqli_query($conn, "CREATE TABLE hero_section (
+        id_hero INT AUTO_INCREMENT PRIMARY KEY,
+        judul VARCHAR(255) NOT NULL,
+        deskripsi TEXT,
+        foto VARCHAR(255)
+    )");
+    mysqli_query($conn, "INSERT INTO hero_section (judul, deskripsi) VALUES ('Detailing Mobil Premium', 'Transformasi kendaraan Anda dengan layanan detailing terbaik, presisi showroom-level, dan sentuhan profesional berkelas.')");
+}
+
 $heroList = [];
 $resultHero = mysqli_query($conn, 'SELECT id_hero, judul, deskripsi FROM `hero_section` ORDER BY id_hero DESC');
 if ($resultHero) {
@@ -40,9 +54,6 @@ if ($resultHero) {
     }
     mysqli_free_result($resultHero);
 }
-
-$isLoggedIn = isset($_SESSION['user_id']);
-$username = $_SESSION['username'] ?? '';
 ?>
 <!DOCTYPE html>
 <html lang="id">
