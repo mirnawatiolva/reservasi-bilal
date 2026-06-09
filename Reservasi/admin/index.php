@@ -281,12 +281,7 @@ $js_chart_selesai = "[" . implode(",", $chart_selesai_data) . "]";
                                             <div class="small fw-bold">Kelola Paket</div>
                                         </a>
                                     </div>
-                                    <div class="col-6">
-                                        <a href="kelola_laporan.php" class="d-block text-center p-3 shortcut-card bg-light">
-                                            <i class="bi bi-file-earmark-bar-graph shortcut-icon"></i>
-                                            <div class="small fw-bold">Laporan</div>
-                                        </a>
-                                    </div>
+
                                     <div class="col-6">
                                         <a href="kelola_hero.php" class="d-block text-center p-3 shortcut-card bg-light">
                                             <i class="bi bi-images shortcut-icon"></i>
